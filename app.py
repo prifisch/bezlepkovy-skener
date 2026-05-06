@@ -29,8 +29,36 @@ if img_file:
     if detected_barcodes:
         ean = detected_barcodes[0].data.decode('utf-8')
         st.success(f"Naskenovaný kód: {ean}")
-    else:
-        st.error("Nepodarilo sa rozpoznať kód. Skúste kód priblížiť a zaostriť.")
+else:
+        with st.spinner('Hľadám v globálnej databáze...'):
+            try:
+                url = f"https://world.openfoodfacts.org/api/v2/product/{ean}.json"
+                response = requests.get(url, timeout=10) # Pridali sme timeout 10 sekúnd
+                
+                if response.status_code == 200:
+                    res_data = response.json()
+                    
+                    if res_data.get("status") == 1:
+                        prod = res_data.get("product", {})
+                        name = prod.get('product_name') or prod.get('product_name_en') or "Neznámy produkt"
+                        
+                        st.warning(f"### 📦 {name}")
+                        st.write("Produkt nie je v oficiálnom zozname, ale našiel sa v Open Food Facts.")
+                        
+                        # Inteligentnejšie hľadanie zloženia
+                        ingr = prod.get("ingredients_text_sk") or \
+                               prod.get("ingredients_text_cs") or \
+                               prod.get("ingredients_text_en") or "Zloženie nie je k dispozícii."
+                        
+                        with st.expander("Zobraziť zloženie"):
+                            st.write(ingr)
+                    else:
+                        st.error(f"Produkt s kódom {ean} sa v databáze Open Food Facts nenašiel.")
+                else:
+                    st.error(f"Server vrátil chybu: {response.status_code}")
+                    
+            except Exception as e:
+                st.error(f"Detailná chyba spojenia: {e}")
 
 # Alternatívny ručný vstup
 manual_ean = st.text_input("Alebo zadajte kód ručne:")
