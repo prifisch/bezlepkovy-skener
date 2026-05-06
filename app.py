@@ -46,7 +46,7 @@ with tab2:
 if ean:
     st.divider()
     
-    # KROK A: Kontrola v tvojej vlastnej databáze (MZ SR)
+    # KROK A: Kontrola v lokálnej databáze (MZ SR)
     if ean in local_db:
         product = local_db[ean]
         st.success(f"### ✅ {product['name']}")
@@ -58,7 +58,7 @@ if ean:
     else:
         with st.spinner('Hľadám v globálnej databáze...'):
             headers = {
-                "User-Agent": "BezlepkovySkenerSK - WebApp - Version 1.1 (Kontakt: tvoj@email.com)"
+                "User-Agent": "BezlepkovySkenerSK - WebApp - Version 1.2 (Kontakt: tvoj@email.com)"
             }
             url = f"https://world.openfoodfacts.org/api/v2/product/{ean}.json"
             
@@ -74,49 +74,64 @@ if ean:
                         
                         st.warning(f"### 📦 {name}")
 
-                        # --- ROZŠÍRENÁ KONTROLA LEPKU (Zloženie + Alergény + Stopy) ---
+                        # --- AGRESÍVNE ZÍSKAVANIE DÁT (Hľadáme v akomkoľvek poli) ---
                         
-                        # Získanie textov (všetko na malé písmená pre jednoduchšie hľadanie)
-                        ingr = (prod.get("ingredients_text_sk") or prod.get("ingredients_text_cs") or prod.get("ingredients_text_en") or "").lower()
-                        allergens = (prod.get("allergens") or "").lower()
-                        traces = (prod.get("traces") or "").lower()
+                        # Zloženie: skús prioritné jazyky, potom čokoľvek
+                        ingr_raw = prod.get("ingredients_text_sk") or \
+                                   prod.get("ingredients_text_cs") or \
+                                   prod.get("ingredients_text_en") or \
+                                   prod.get("ingredients_text") or ""
+                        ingr = ingr_raw.lower()
+
+                        # Alergény: textové pole alebo tagy (hierarchia)
+                        allergens_raw = prod.get("allergens") or ", ".join(prod.get("allergens_hierarchy", [])) or ""
+                        allergens = allergens_raw.lower()
+
+                        # Stopy (Môže obsahovať): textové pole alebo tagy
+                        traces_raw = prod.get("traces") or ", ".join(prod.get("traces_hierarchy", [])) or ""
+                        traces = traces_raw.lower()
                         
-                        # Zoznam rizikových slov (Slovenčina + Angličtina kvôli medzinárodným tagom)
-                        zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "wheat", "barley", "rye", "oat", "spelt", "špalda"]
+                        # Rozšírený zoznam zakázaných slov (SK, CS, EN, DE, FR)
+                        zakazane = [
+                            "pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "špalda", # SK/CS
+                            "wheat", "barley", "rye", "oat", "spelt", "malt",                     # EN
+                            "weizen", "gerste", "roggen", "hafer", "malz",                        # DE
+                            "blé", "orge", "seigle", "avoine"                                     # FR
+                        ]
                         
-                        # Kontrola prítomnosti v jednotlivých poliach
+                        # Kontrola prítomnosti
                         naslo_v_zlozeni = [s for s in zakazane if s in ingr]
                         naslo_v_alergenoch = [s for s in zakazane if s in allergens]
                         naslo_v_stopach = [s for s in zakazane if s in traces]
 
-                        # Vyhodnotenie výsledku
+                        # --- VYHODNOTENIE ---
                         if naslo_v_zlozeni or naslo_v_alergenoch:
                             st.error("### ❌ OBSAHUJE LEPOK")
-                            vsetky_zlozky = set(naslo_v_zlozeni + naslo_v_alergenoch)
-                            st.write(f"**Nájdené rizikové zložky:** {', '.join(vsetky_zlozky)}")
+                            rizika = set(naslo_v_zlozeni + naslo_v_alergenoch)
+                            st.write(f"**Nájdené zložky:** {', '.join(rizika)}")
                         
                         elif naslo_v_stopach:
                             st.warning("### ⚠️ MÔŽE OBSAHOVAŤ LEPOK")
-                            st.write(f"**Upozornenie na stopy:** {', '.join(set(naslo_v_stopach))}")
-                            st.info("Tento produkt nemá lepok v priamom zložení, ale výrobca varuje pred možnou kontamináciou.")
+                            st.write(f"**Zistené stopy:** {', '.join(set(naslo_v_stopach))}")
+                            st.info("Produkt nemá lepok v priamom zložení, ale hrozí kontaminácia (stopy).")
                         
                         else:
                             st.success("### ✅ NEBOLI NÁJDENÉ ALERGÉNY")
-                            st.write("V zložení, alergénoch ani stopách neboli nájdené bežné obilniny obsahujúce lepok.")
+                            st.write("V dostupných dátach sa nenašiel lepok ani stopy lepku.")
 
-                        # Zobrazenie surových dát pre kontrolu
+                        # Zobrazenie detailov (aj keď sú v inom jazyku)
                         with st.expander("🔍 Zobraziť detailné texty z databázy"):
-                            if ingr: st.write(f"**Zloženie:** {ingr}")
-                            if allergens: st.write(f"**Alergény:** {allergens}")
-                            if traces: st.write(f"**Stopy (Môže obsahovať):** {traces}")
+                            st.write(f"**Zloženie:** {ingr_raw if ingr_raw else 'Neuvedené'}")
+                            st.write(f"**Alergény:** {allergens_raw if allergens_raw else 'Neuvedené'}")
+                            st.write(f"**Stopy:** {traces_raw if traces_raw else 'Neuvedené'}")
                     
                     else:
                         st.error(f"Produkt s kódom {ean} sa v databáze nenašiel.")
                 
                 elif response.status_code == 403:
-                    st.error("Chyba 403: Prístup zamietnutý serverom. Skúste neskôr.")
+                    st.error("Chyba 403: Prístup zamietnutý. Skúste to neskôr.")
                 elif response.status_code == 429:
-                    st.error("Chyba 429: Príliš veľa požiadaviek. Server má pauzu.")
+                    st.error("Chyba 429: Príliš veľa požiadaviek (Server má pauzu).")
                 else:
                     st.error(f"Server vrátil chybu: {response.status_code}")
                     
