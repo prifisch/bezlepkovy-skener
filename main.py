@@ -19,3 +19,17 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+import json
+
+def get_local_product(ean):
+    try:
+        with open('data/processed/kategorizacia.json', 'r', encoding='utf-8') as f:
+            local_db = json.load(f)
+            return local_db.get(ean)
+    except FileNotFoundError:
+        return None
+
+# V hlavnej funkcii main():
+# 1. Pozri sa do local_db
+# 2. Ak nič, volaj OpenFoodFactsClient
