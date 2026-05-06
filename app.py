@@ -8,44 +8,27 @@ from PIL import Image
 st.set_page_config(page_title="Bezlepkový Skener", page_icon="🌾")
 st.title("🌾 Inteligentný Skener")
 
-# 1. Funkcia na preklad technických tagov z databázy
+# 1. Funkcia na preklad technických tagov
 def clean_tags(text):
     if not text:
         return "Neuvedené"
-    
-    # Mapa prekladov
     preklady = {
-        "en:gluten": "Lepok",
-        "en:wheat": "Pšenica",
-        "en:milk": "Mlieko",
-        "en:eggs": "Vajcia",
-        "en:nuts": "Orechy",
-        "en:soybeans": "Sója",
-        "en:lupin": "Lupina (Vlčí bôb)",
-        "en:peanuts": "Arašidy",
-        "en:sesame-seeds": "Sezam",
-        "en:mustard": "Horčica",
-        "en:none": "Žiadne",
-        "en:safe": "Bezpečné"
+        "en:gluten": "Lepok", "en:wheat": "Pšenica", "en:milk": "Mlieko",
+        "en:eggs": "Vajcia", "en:nuts": "Orechy", "en:soybeans": "Sója",
+        "en:lupin": "Lupina", "en:peanuts": "Arašidy", "en:none": "Žiadne"
     }
-    
     vystup = text
     for kod, nazov in preklady.items():
         vystup = vystup.replace(kod, nazov)
-    
-    # Odstránenie zvyšných "en:" ak by tam nejaké zostali
-    vystup = vystup.replace("en:", "")
-    return vystup
+    return vystup.replace("en:", "")
 
 # 2. Načítanie lokálnej databázy
 def load_local_db():
     path = "data/kategorizacia.json"
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
-            try:
-                return json.load(f)
-            except:
-                return {}
+            try: return json.load(f)
+            except: return {}
     return {}
 
 local_db = load_local_db()
@@ -61,75 +44,84 @@ with tab1:
         detected_barcodes = decode(img)
         if detected_barcodes:
             ean = detected_barcodes[0].data.decode('utf-8').strip()
-            st.success(f"Naskenovaný kód: {ean}")
         else:
-            st.error("Kód na fotke sa nepodarilo prečítať.")
+            st.error("Kód sa nepodarilo prečítať.")
 
 with tab2:
-    manual_ean = st.text_input("Alebo zadajte kód ručne:")
-    if manual_ean:
-        ean = manual_ean.strip()
+    manual_ean = st.text_input("Zadajte kód ručne:")
+    if manual_ean: ean = manual_ean.strip()
 
-# --- HLAVNÁ LOGIKA VYHĽADÁVANIA ---
+# --- HLAVNÁ LOGIKA ---
 if ean:
     st.divider()
+    
     if ean in local_db:
         product = local_db[ean]
         st.success(f"### ✅ {product['name']}")
         st.balloons()
-        st.write(f"**Výrobca:** {product['producer']}")
-        st.info(f"ℹ️ **Status:** {product['note']}")
+        st.info(f"**Výrobca:** {product['producer']} | **Status:** {product['note']}")
+    
     else:
         with st.spinner('Hľadám v globálnej databáze...'):
-            headers = {"User-Agent": "BezlepkovySkenerSK - WebApp - Version 1.3"}
             url = f"https://world.openfoodfacts.org/api/v2/product/{ean}.json"
-            
             try:
-                response = requests.get(url, headers=headers, timeout=10)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    if res_data.get("status") == 1:
-                        prod = res_data.get("product", {})
-                        name = prod.get('product_name') or prod.get('product_name_en') or "Neznámy produkt"
-                        st.warning(f"### 📦 {name}")
-
-                        # Získanie raw dát
-                        ingr_raw = prod.get("ingredients_text_sk") or prod.get("ingredients_text_cs") or prod.get("ingredients_text_en") or prod.get("ingredients_text") or ""
-                        allergens_raw = prod.get("allergens") or ", ".join(prod.get("allergens_hierarchy", [])) or ""
-                        traces_raw = prod.get("traces") or ", ".join(prod.get("traces_hierarchy", [])) or ""
-                        
-                        # Kontrola zakázaných slov (pred prekladom pre presnosť)
-                        zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "špalda", "wheat", "barley", "rye", "oat", "spelt", "malt"]
-                        
-                        ingr_l = ingr_raw.lower()
-                        all_l = allergens_raw.lower()
-                        trc_l = traces_raw.lower()
-
-                        naslo_v_zlozeni = [s for s in zakazane if s in ingr_l]
-                        naslo_v_alergenoch = [s for s in zakazane if s in all_l]
-                        naslo_v_stopach = [s for s in zakazane if s in trc_l]
-
-                        # Vyhodnotenie
-                        if naslo_v_zlozeni or naslo_v_alergenoch:
-                            st.error("### ❌ OBSAHUJE LEPOK")
-                            st.write(f"**Zistené zložky:** {', '.join(set(naslo_v_zlozeni + naslo_v_alergenoch))}")
-                        elif naslo_v_stopach:
-                            st.warning("### ⚠️ MÔŽE OBSAHOVAŤ LEPOK")
-                            st.info("Produkt nemá lepok v zložení, ale hrozí kontaminácia (stopy).")
+                res = requests.get(url, timeout=10).json()
+                if res.get("status") == 1:
+                    prod = res.get("product", {})
+                    
+                    # --- 1. ZOBRAZENIE FOTOGRAFIE ---
+                    col1, col2 = st.columns([1, 2])
+                    with col1:
+                        img_url = prod.get('image_url')
+                        if img_url:
+                            st.image(img_url, use_container_width=True)
                         else:
-                            st.success("### ✅ NEBOLI NÁJDENÉ ALERGÉNY")
+                            st.grey("Bez fotky")
+                    
+                    with col2:
+                        name = prod.get('product_name') or "Neznámy produkt"
+                        st.subheader(name)
+                        
+                        # --- 2. KONTROLA CERTIFIKÁTOV (Labels) ---
+                        labels = prod.get('labels_tags', [])
+                        if any('gluten-free' in l or 'crossed-grain' in l for l in labels):
+                            st.markdown("✅ **Oficiálne certifikovaný bezlepkový produkt**")
+                        if any('bio' in l or 'organic' in l for l in labels):
+                            st.markdown("🍃 **BIO / Organic certifikát**")
 
-                        # Zobrazenie detailov s PREKLADOM
-                        with st.expander("🔍 Zobraziť detailné texty z databázy"):
-                            st.write(f"**Zloženie:** {ingr_raw if ingr_raw else 'Neuvedené'}")
-                            st.write(f"**Alergény:** {clean_tags(allergens_raw)}")
-                            st.write(f"**Stopy:** {clean_tags(traces_raw)}")
+                    # --- 3. ANALÝZA ZLOŽENIA A DIÉT ---
+                    ingr_raw = prod.get("ingredients_text_sk") or prod.get("ingredients_text") or ""
+                    allergens_raw = prod.get("allergens") or ", ".join(prod.get("allergens_hierarchy", [])) or ""
+                    traces_raw = prod.get("traces") or ", ".join(prod.get("traces_hierarchy", [])) or ""
+                    
+                    zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "wheat", "barley"]
+                    
+                    found_ingr = [s for s in zakazane if s in ingr_raw.lower() or s in allergens_raw.lower()]
+                    found_traces = [s for s in zakazane if s in traces_raw.lower()]
+
+                    if found_ingr:
+                        st.error("### ❌ OBSAHUJE LEPOK")
+                    elif found_traces:
+                        st.warning("### ⚠️ MÔŽE OBSAHOVAŤ LEPOK (Stopy)")
                     else:
-                        st.error(f"Produkt s kódom {ean} sa v databáze nenašiel.")
+                        st.success("### ✅ VYZERÁ TO BEZPEČNE")
+
+                    # --- Zobrazenie diétnej vhodnosti ---
+                    analysis = prod.get('ingredients_analysis_tags', [])
+                    if 'en:vegan' in analysis:
+                        st.caption("🌱 Vhodné pre vegánov")
+                    elif 'en:vegetarian' in analysis:
+                        st.caption("🥚 Vhodné pre vegetariánov")
+
+                    with st.expander("🔍 Detailné údaje"):
+                        st.write(f"**Alergény:** {clean_tags(allergens_raw)}")
+                        st.write(f"**Stopy:** {clean_tags(traces_raw)}")
+                        if labels:
+                            st.write(f"**Všetky štítky:** {', '.join(labels).replace('en:', '')}")
                 else:
-                    st.error(f"Server vrátil chybu: {response.status_code}")
+                    st.error("Produkt sa nenašiel.")
             except Exception as e:
-                st.error(f"Chyba pri pripájaní: {e}")
+                st.error(f"Chyba: {e}")
 
 st.divider()
-st.caption("Projekt: Bezlepkový Skener | Dáta: MZ SR & Open Food Facts")
+st.caption("Dáta: MZ SR & Open Food Facts")
