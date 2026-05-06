@@ -16,7 +16,16 @@ def load_local_db():
 
 local_db = load_local_db()
 
-ean = st.text_input("Zadajte alebo naskenujte EAN kód:")
+tab1, tab2 = st.tabs(["📸 Skenovať", "⌨️ Zadať kód"])
+
+with tab1:
+    img_file = st.camera_input("Odfoťte čiarový kód")
+    # Tu bude v budúcnosti AI čítačka kódu z obrázka
+    if img_file:
+        st.warning("Funkcia automatického čítania z fotky vyžaduje knižnicu, ktorú pridáme v ďalšom kroku. Zatiaľ kód prepíšte.")
+
+with tab2:
+    ean = st.text_input("Zadajte EAN kód:")
 
 if ean:
     # KROK A: Kontrola v štátnej databáze
