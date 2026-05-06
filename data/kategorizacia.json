@@ -1,20 +1,77 @@
 {
-    "8588000223019": {
-        "name": "Novalim Chlieb svetlý 400g",
-        "producer": "Novalim",
-        "status": "GREEN",
-        "note": "Plne hradené/Kategorizované"
-    },
-    "8008698001065": {
-        "name": "Schär Pan Blanco 250g",
-        "producer": "Schär",
-        "status": "GREEN",
-        "note": "Dietetická potravina na predpis"
-    },
-    "8594002610114": {
-        "name": "Jizerka - bezlepková zmes 1kg",
-        "producer": "Jizerské pekárny",
-        "status": "GREEN",
-        "note": "Čiastočne hradené poisťovňou"
-    }
+  "8008698000138": {
+    "name": "Mix B - bezlepková zmes na chlieb (D0298)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698004730": {
+    "name": "Mix it! Dunkel - chlebová zmes tmavá (D0657)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698013145": {
+    "name": "Mix it - Univerzal (D1226)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698000015": {
+    "name": "Mehl Farine - múčna zmes univerzálna (D1072)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698001791": {
+    "name": "Mix C Patisserie - múčna zmes na koláče (D1073)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698002071": {
+    "name": "Maestro Vital - viaczrnný chlieb (D0939)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698002064": {
+    "name": "Maestro Classic - biely chlieb (D0940)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698002088": {
+    "name": "Maestro Cereale - viaczrnný chlieb (D0941)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698002163": {
+    "name": "Paniermehl - strúhanka bez lepku (D0658)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698004839": {
+    "name": "Bon Matin - sladké žemle (D0293)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8008698011035": {
+    "name": "Ciabatta Rustica (D0661)",
+    "producer": "Schär",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8586004651322": {
+    "name": "PROMIX UNI - univerzálna zmes (D0172)",
+    "producer": "Novalim",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8586004651315": {
+    "name": "PROMIX CH - zmes na chlieb (D0170)",
+    "producer": "Novalim",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8586004651339": {
+    "name": "PROMIX T - tmavá zmes (D0173)",
+    "producer": "Novalim",
+    "note": "Dietetická potravina - plne hradená"
+  },
+  "8586004651636": {
+    "name": "PROMIX PK - zmes na jemné pečivo (D0171)",
+    "producer": "Novalim",
+    "note": "Dietetická potravina - plne hradená"
+  }
 }
