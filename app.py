@@ -9,59 +9,81 @@ from PIL import Image
 st.set_page_config(
     page_title="Bezlepkový Skener", 
     page_icon="🌾",
-    layout="centered" # Na mobile je lepšie centrované, CSS sa postará o šírku
+    layout="centered"
 )
 
-# 2. Vlastné CSS pre Pixel 8a a mobilné zariadenia
+# 2. Vylepšené CSS pre Pixel 8a (UX a dizajn)
 st.markdown("""
     <style>
-    /* Odstránenie horného paddingu a okrajov */
+    /* Hlavný kontajner a pozadie */
+    .stApp {
+        background-color: #f8f9fa;
+    }
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        padding: 1rem 0.5rem !important;
     }
-    
-    /* Zväčšenie tlačidiel pre palce */
-    .stButton > button {
-        width: 100%;
-        height: 3.5rem;
-        border-radius: 12px;
-        font-size: 1.1rem !important;
-        font-weight: bold;
-    }
-    
-    /* Úprava kariet (Tabs) pre mobil */
+
+    /* Štýlovanie kariet (Tabs) */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 10px;
+        background-color: #f0f2f6;
+        padding: 5px;
+        border-radius: 15px;
         width: 100%;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 3rem;
+        height: 3.5rem;
         flex-grow: 1;
-        border-radius: 8px 8px 0px 0px;
+        border-radius: 10px !important;
+        background-color: transparent;
+        transition: all 0.3s;
+        border: none !important;
         text-align: center;
     }
-
-    /* Vylepšenie zobrazenia obrázkov */
-    img {
-        border-radius: 15px;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+    .stTabs [aria-selected="true"] {
+        background-color: #ffffff !important;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+        font-weight: bold;
     }
 
-    /* Zväčšenie textu v info boxoch */
+    /* Vizuálny rámik pre kameru */
+    [data-testid="stCameraInput"] {
+        border: 3px solid #007bff;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0px 0px 15px rgba(0,123,255,0.2);
+    }
+
+    /* Karty pre výsledky a tlačidlá */
     .stAlert {
+        border-radius: 15px;
         font-size: 1rem !important;
-        border-radius: 12px;
     }
+    
+    div.stButton > button {
+        width: 100%;
+        border-radius: 15px !important;
+        background-color: #007bff !important;
+        color: white !important;
+        border: none;
+        padding: 0.8rem;
+        font-weight: 600;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+        height: 3.5rem;
+    }
+    
+    div.stButton > button:active {
+        transform: scale(0.98);
+    }
+
+    /* Skrytie zbytočných Streamlit prvkov */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🌾 Inteligentný Skener")
-
-# --- ZVYŠOK KÓDU (Funkcie) ---
-
+# 3. Pomocné funkcie
 def clean_tags(text):
     if not text: return "Neuvedené"
     preklady = {
@@ -84,38 +106,46 @@ def load_local_db():
 
 local_db = load_local_db()
 
+# --- LOGIKA APLIKÁCIE ---
+st.title("🌾 Bezlepkový Skener")
+
 ean = None
-tab1, tab2 = st.tabs(["📸 Skenovať", "⌨️ Ručne"])
+tab1, tab2 = st.tabs(["🔍 SKENOVAŤ", "⌨️ RUČNE"])
 
 with tab1:
-    # Zmenšený text pre inštrukciu, aby nezaberala miesto
-    img_file = st.camera_input("Namierte na kód")
+    st.info("📸 **Namierte na kód** (ak vidíte seba, prepnite kameru ikonou 🔄)")
+    img_file = st.camera_input("Skenovanie", label_visibility="collapsed")
     if img_file:
         img = Image.open(img_file)
+        # Dvojfázové skenovanie (čiernobiele + farebné)
         img_gray = img.convert('L')
         detected_barcodes = decode(img_gray) or decode(img)
             
         if detected_barcodes:
             ean = detected_barcodes[0].data.decode('utf-8').strip()
         else:
-            st.error("Kód nečitateľný. Skúste iný uhol.")
+            st.error("Kód nečitateľný. Skúste iný uhol alebo lepšie svetlo.")
 
 with tab2:
-    manual_ean = st.text_input("EAN kód:")
-    if manual_ean: ean = manual_ean.strip()
+    manual_ean = st.text_input("Zadajte EAN kód ručne:")
+    if manual_ean: 
+        ean = manual_ean.strip()
 
+# --- SPRACOVANIE VÝSLEDKOV ---
 if ean:
     st.divider()
     
+    # 1. KONTROLA V LOKÁLNOM ZOZNAME (Kategorizácia)
     if ean in local_db:
         product = local_db[ean]
         st.success(f"### ✅ {product['name']}")
         st.balloons()
         st.info(f"**Výrobca:** {product['producer']}\n\n**Status:** {product['note']}")
     
+    # 2. KONTROLA V GLOBÁLNEJ DATABÁZE
     else:
-        with st.spinner('Hľadám...'):
-            headers = {"User-Agent": "BezlepkovySkenerSK - MobileView"}
+        with st.spinner('Hľadám v databáze...'):
+            headers = {"User-Agent": "BezlepkovySkenerSK - Pixel8a-View"}
             url = f"https://world.openfoodfacts.org/api/v2/product/{ean}.json"
             
             try:
@@ -125,7 +155,7 @@ if ean:
                     if res.get("status") == 1:
                         prod = res.get("product", {})
                         
-                        # Mobilné rozloženie: Obrázok hore, pod ním info
+                        # Obrázok produktu
                         img_url = prod.get('image_url')
                         if img_url:
                             st.image(img_url, use_container_width=True)
@@ -133,34 +163,38 @@ if ean:
                         name = prod.get('product_name') or prod.get('product_name_en') or "Neznámy produkt"
                         st.subheader(name)
                         
-                        # Zobrazenie certifikátov
+                        # Certifikáty
                         labels = prod.get('labels_tags', [])
                         if any('gluten-free' in l or 'crossed-grain' in l for l in labels):
                             st.success("🛡️ **Oficiálne bezlepkový certifikát**")
 
                         # Analýza zloženia
-                        ingr_raw = prod.get("ingredients_text_sk") or prod.get("ingredients_text") or ""
+                        ingr_raw = prod.get("ingredients_text_sk") or prod.get("ingredients_text_cs") or prod.get("ingredients_text") or ""
                         zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "wheat", "barley", "rye", "oat", "spelt"]
                         
                         found = [s for s in zakazane if s in ingr_raw.lower()]
 
                         if found:
-                            st.error(f"### ❌ OBSAHUJE LEPOK\n({', '.join(set(found))})")
+                            st.error(f"### ❌ OBSAHUJE LEPOK\nZistené: {', '.join(set(found))}")
                         else:
                             st.success("### ✅ VYZERÁ TO BEZPEČNE")
 
-                        # RASFF Tlačidlo - široké pre mobil
+                        # RASFF Tlačidlo
                         brand = prod.get('brands', 'Produkt').split(',')[0]
                         rasff_url = f"https://webgate.ec.europa.eu/rasff-window/screen/search?searchQueries={brand}&notifStatus=PUBLISHED"
-                        st.link_button(f"🚩 Overiť bezpečnosť {brand}", rasff_url)
+                        st.link_button(f"🚩 Overiť bezpečnosť značky {brand}", rasff_url)
 
-                        with st.expander("🔍 Podrobnosti o zložení"):
+                        with st.expander("🔍 Podrobné zloženie a alergény"):
                             st.write(f"**Alergény:** {clean_tags(prod.get('allergens', 'Neuvedené'))}")
                             st.write(f"**Stopy:** {clean_tags(prod.get('traces', 'Neuvedené'))}")
+                            if labels:
+                                st.write(f"**Štítky:** {', '.join(labels).replace('en:', '')}")
                     else:
-                        st.error("Produkt sa nenašiel.")
+                        st.warning("Produkt sa v globálnej databáze nenašiel.")
+                else:
+                    st.error("Chyba spojenia so serverom.")
             except Exception as e:
-                st.error(f"Chyba siete.")
+                st.error("Vyskytla sa chyba pri hľadaní.")
 
 st.divider()
-st.caption("Dáta: MZ SR & Open Food Facts")
+st.caption("Zdroje dát: Zoznam kategorizovaných potravín MZ SR & [Open Food Facts](https://world.openfoodfacts.org)")
