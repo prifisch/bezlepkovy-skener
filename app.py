@@ -43,11 +43,20 @@ with tab1:
     img_file = st.camera_input("Odfoťte čiarový kód")
     if img_file:
         img = Image.open(img_file)
-        detected_barcodes = decode(img)
+        
+        # --- VYLEPŠENÝ BLOK SKENOVANIA ---
+        # 1. Skúsime previesť na čiernobielu (vysoký kontrast pre pyzbar)
+        img_gray = img.convert('L')
+        detected_barcodes = decode(img_gray)
+        
+        # 2. Ak sa nepodarilo v čiernobielej, skúsime pôvodnú fotku
+        if not detected_barcodes:
+            detected_barcodes = decode(img)
+            
         if detected_barcodes:
             ean = detected_barcodes[0].data.decode('utf-8').strip()
         else:
-            st.error("Kód sa nepodarilo prečítať.")
+            st.error("Kód sa nepodarilo prečítať. Skúste kód vyrovnať alebo zlepšiť svetlo.")
 
 with tab2:
     manual_ean = st.text_input("Zadajte kód ručne:")
@@ -66,16 +75,14 @@ if ean:
     
     else:
         with st.spinner('Hľadám v globálnej databáze...'):
-            # PRIDANÉ: Hlavičky pre identifikáciu aplikácie (prevencia chyby 403/Expecting value)
             headers = {
-                "User-Agent": "BezlepkovySkenerSK - WebApp - Version 1.3 (Kontakt: tvoj@email.com)"
+                "User-Agent": "BezlepkovySkenerSK - WebApp - Version 1.4"
             }
             url = f"https://world.openfoodfacts.org/api/v2/product/{ean}.json"
             
             try:
                 response = requests.get(url, headers=headers, timeout=10)
                 
-                # Kontrola, či server vôbec odpovedal správne
                 if response.status_code == 200:
                     res = response.json()
                     
@@ -95,19 +102,18 @@ if ean:
                             name = prod.get('product_name') or prod.get('product_name_en') or "Neznámy produkt"
                             st.subheader(name)
                             
-                            # --- 2. KONTROLA CERTIFIKÁTOV (Labels) ---
                             labels = prod.get('labels_tags', [])
                             if any('gluten-free' in l or 'crossed-grain' in l for l in labels):
-                                st.success("✅ **Oficiálne certifikovaný bezlepkový produkt**")
+                                st.success("✅ **Certifikovaný bezlepkový**")
                             if any('bio' in l or 'organic' in l for l in labels):
                                 st.write("🍃 **BIO / Organic certifikát**")
 
-                        # --- 3. ANALÝZA ZLOŽENIA A DIÉT ---
+                        # --- 2. ANALÝZA ZLOŽENIA ---
                         ingr_raw = prod.get("ingredients_text_sk") or prod.get("ingredients_text_cs") or prod.get("ingredients_text") or ""
                         allergens_raw = prod.get("allergens") or ", ".join(prod.get("allergens_hierarchy", [])) or ""
                         traces_raw = prod.get("traces") or ", ".join(prod.get("traces_hierarchy", [])) or ""
                         
-                        zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "wheat", "barley", "rye", "oat"]
+                        zakazane = ["pšenič", "jačmeň", "raž", "ovos", "lepok", "gluten", "slad", "wheat", "barley", "rye", "oat", "spelt"]
                         
                         found_ingr = [s for s in zakazane if s in ingr_raw.lower() or s in allergens_raw.lower()]
                         found_traces = [s for s in zakazane if s in traces_raw.lower()]
@@ -119,7 +125,7 @@ if ean:
                         else:
                             st.success("### ✅ VYZERÁ TO BEZPEČNE")
 
-                        # --- Zobrazenie diétnej vhodnosti ---
+                        # --- Diéty ---
                         analysis = prod.get('ingredients_analysis_tags', [])
                         if 'en:vegan' in analysis:
                             st.caption("🌱 Vhodné pre vegánov")
@@ -136,8 +142,6 @@ if ean:
                 else:
                     st.error(f"Server vrátil chybu: {response.status_code}")
                     
-            except requests.exceptions.JSONDecodeError:
-                st.error("Chyba: Server poslal neplatné dáta. Skúste to znova.")
             except Exception as e:
                 st.error(f"Neočakávaná chyba: {e}")
 
