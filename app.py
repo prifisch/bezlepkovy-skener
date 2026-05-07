@@ -5,14 +5,14 @@ import os
 from pyzbar.pyzbar import decode
 from PIL import Image
 
-# 1. Konfigurácia stránky pre mobil
+# 1. Konfigurácia stránky pre mobil (Optimalizované pre Pixel 8a)
 st.set_page_config(
     page_title="Bezlepkový Skener", 
     page_icon="🌾",
     layout="centered"
 )
 
-# 2. Vylepšené CSS pre Pixel 8a
+# 2. Vylepšené CSS pre moderný mobilný vzhľad
 st.markdown("""
     <style>
     .stApp { background-color: #f8f9fa; }
@@ -41,10 +41,13 @@ st.markdown("""
         color: white !important; font-weight: 600; height: 3.5rem;
     }
     
-    /* Vlastný štýl pre Thumbnail */
-    .prod-img {
-        border-radius: 12px;
-        box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+    /* Štýlovanie výslednej karty produktu */
+    .prod-card {
+        background-color: white;
+        padding: 10px;
+        border-radius: 15px;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
     }
 
     #MainMenu {visibility: hidden;}
@@ -92,7 +95,7 @@ with tab1:
         if detected_barcodes:
             ean = detected_barcodes[0].data.decode('utf-8').strip()
         else:
-            st.error("Kód nečitateľný.")
+            st.error("Kód nečitateľný. Skúste iný uhol.")
 
 with tab2:
     manual_ean = st.text_input("Zadajte EAN kód:")
@@ -105,7 +108,7 @@ if ean:
     prod_info = None
     source = None
 
-    # 1. Hľadanie dát
+    # 1. Hľadanie dát (Lokálna DB -> Open Food Facts)
     if ean in local_db:
         local_prod = local_db[ean]
         prod_info = {
@@ -126,17 +129,18 @@ if ean:
                     prod_info = {
                         "name": p.get('product_name') or p.get('product_name_en') or "Neznámy produkt",
                         "brand": p.get('brands', 'Neznáma značka').split(',')[0],
-                        "desc": f"Kategória: {p.get('categories', 'Potraviny')}",
+                        "desc": f"Kategória: {p.get('categories', 'Potraviny').split(',')[0]}",
                         "img": p.get('image_url'),
                         "raw": p
                     }
                     source = "off"
         except: pass
 
-    # 2. Vizualizácia výsledku
+    # 2. Vizualizácia výsledku (Nové rozloženie)
     if prod_info:
-        # Horná sekcia: Thumbnail a Názov
+        # Horná sekcia: Thumbnail vľavo, Text vpravo
         col_img, col_txt = st.columns([1, 2])
+        
         with col_img:
             if prod_info["img"]:
                 st.image(prod_info["img"], use_container_width=True)
@@ -145,12 +149,12 @@ if ean:
         
         with col_txt:
             st.markdown(f"### **{prod_info['name']}**")
-            st.write(f"{prod_info['brand']}")
+            st.write(f"**{prod_info['brand']}**")
             st.caption(prod_info['desc'])
 
         st.markdown("---")
 
-        # Semafor sekcia
+        # STREDNÁ SEKCIA: Semafor (Výsledná hláška)
         if source == "local":
             st.success("🟢 **OVERENÝ BEZLEPKOVÝ PRODUKT**")
             st.balloons()
@@ -164,26 +168,33 @@ if ean:
             is_certified = any('gluten-free' in l or 'crossed-grain' in l for l in labels)
 
             if found:
-                st.error(f"🔴 **OBSAHUJE LEPOK**\n(Nájdené: {', '.join(set(found))})")
+                st.error(f"🔴 **OBSAHUJE LEPOK**\n(Zistené: {', '.join(set(found))})")
             elif is_certified:
                 st.success("🟢 **CERTIFIKOVANÝ BEZLEPKOVÝ PRODUKT**")
             else:
                 st.warning("🟡 **NEOVERENÉ / MOŽNÉ STOPY**\nSkontrolujte obal výrobku.")
 
-        # Detailná sekcia
-        with st.expander("🔍 Detailné informácie o alergénoch"):
+        # DOLNÁ SEKCIA: Detailné informácie (Expander)
+        with st.expander("🔍 Detailné informácie o zložení"):
             if source == "off":
                 p = prod_info["raw"]
                 st.write(f"**Alergény:** {clean_tags(p.get('allergens', 'Neuvedené'))}")
                 st.write(f"**Stopy:** {clean_tags(p.get('traces', 'Neuvedené'))}")
-                if 'labels_tags' in p:
-                    st.write(f"**Štítky:** {', '.join(p['labels_tags']).replace('en:', '')}")
+                
+                # Pridanie aditív (E-čka)
+                additives = p.get('additives_tags', [])
+                if additives:
+                    clean_additives = [a.replace('en:', '').upper() for a in additives]
+                    st.write(f"**Aditíva (E-čka):** {', '.join(clean_additives)}")
+                else:
+                    st.write("**Aditíva:** Neuvádzajú sa žiadne aditíva.")
             else:
-                st.write("Tento produkt sa nachádza v oficiálnom zozname dietetických potravín pre celiatikov.")
+                st.write("Produkt je registrovaný v oficiálnom zozname kategorizovaných dietetických potravín SR.")
 
-        # RASFF Tlačidlo na záver
-        st.link_button(f"🚩 Overiť bezpečnosť {prod_info['brand']}", 
-                       f"https://webgate.ec.europa.eu/rasff-window/screen/search?searchQueries={prod_info['brand']}")
+        # RASFF Tlačidlo (Bezpečnostná kontrola)
+        if prod_info["brand"]:
+            rasff_url = f"https://webgate.ec.europa.eu/rasff-window/screen/search?searchQueries={prod_info['brand']}"
+            st.link_button(f"🚩 Overiť bezpečnosť značky {prod_info['brand']}", rasff_url)
 
     else:
         st.warning("Produkt sa nenašiel v dostupných databázach.")
