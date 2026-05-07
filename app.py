@@ -132,6 +132,14 @@ if ean:
                         elif 'en:vegetarian' in analysis:
                             st.caption("🥚 Vhodné pre vegetariánov")
 
+                        st.markdown("---")
+                        search_term = prod.get('brands', name).split(',')[0] # Vezmeme značku alebo názov
+                        rasff_url = f"https://webgate.ec.europa.eu/rasff-window/screen/search?searchQueries={search_term}&notifStatus=PUBLISHED"
+                        
+                        st.write("🛡️ **Bezpečnostná kontrola:**")
+                        st.link_button(f"Overiť {search_term} v databáze stiahnutých výrobkov (RASFF)", rasff_url)
+                        st.caption("Poznámka: Po kliknutí hľadajte záznamy s rizikom 'Allergens' (Gluten).")
+
                         with st.expander("🔍 Detailné údaje"):
                             st.write(f"**Alergény:** {clean_tags(allergens_raw)}")
                             st.write(f"**Stopy:** {clean_tags(traces_raw)}")
